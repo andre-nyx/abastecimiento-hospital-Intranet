@@ -1,13 +1,9 @@
-# abastecimiento-hospital-Intranet
+# Intranet de abastecimiento hospitalario
 
 ## Descripción
-
-- Intranet desarrollada en React y TypeScript para 
-la gestión de productos, entregas y devoluciones de
-abastecimiento hospitalario.
+Intranet desarrollada en React y TypeScript para la gestión de productos, entregas y devoluciones de abastecimiento hospitalario.
 
 ## Funcionalidades
-
 - Inicio de sesion de usuarios
 - Gestión de productos
 - Registro de entregas
@@ -17,13 +13,11 @@ abastecimiento hospitalario.
 - Rutas protegidas
 
 ## Tecnologias
-
 - React
 - TypeScript
 - React Router
 - LocalStorage
 
 ## Integrantes
-
 - Ignacio Perez
 - Javiera Tabilo
