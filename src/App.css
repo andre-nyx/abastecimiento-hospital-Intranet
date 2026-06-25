@@ -15,6 +15,8 @@ body {
   background: linear-gradient(135deg, #2e7d32, #0f766e);
 }
 
+/* ── Login ─────────────────────────────────────────────────────────────────── */
+
 .login-container {
   min-height: 100vh;
   width: 100%;
@@ -77,9 +79,12 @@ body {
   box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.15);
 }
 
-.form-grupo span {
+.form-grupo span,
+.error-texto {
   color: #dc2626;
-  font-size: 14px;
+  font-size: 13px;
+  display: block;
+  margin-top: 2px;
 }
 
 .input-error {
@@ -96,49 +101,14 @@ body {
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
+  transition: background 0.2s;
 }
 
 .btn-login:hover {
   background: #1b5e20;
 }
 
-.dashboard {
-  min-height: 100vh;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #2e7d32, #0f766e);
-  padding: 20px;
-}
-
-.dashboard-card {
-  background: white;
-  padding: 35px;
-  border-radius: 14px;
-  text-align: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
-}
-
-.dashboard-card h1 {
-  color: #2e7d32;
-}
-
-.btn-cerrar {
-  margin-top: 20px;
-  padding: 11px 18px;
-  border: none;
-  border-radius: 8px;
-  background: #dc2626;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.btn-cerrar:hover {
-  background: #b91c1c;
-}
-
+/* ── Layout general ─────────────────────────────────────────────────────────── */
 
 .sistema-bodega {
   min-height: 100vh;
@@ -148,7 +118,8 @@ body {
   font-family: "Roboto", Arial, sans-serif;
 }
 
-/* Barra lateral */
+/* ── Sidebar ────────────────────────────────────────────────────────────────── */
+
 .sidebar-bodega {
   width: 270px;
   min-height: 100vh;
@@ -193,15 +164,18 @@ body {
   opacity: 0.95;
 }
 
-/* Panel derecho */
+/* ── Panel derecho ──────────────────────────────────────────────────────────── */
+
 .panel-bodega {
   flex: 1;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
-/* Header */
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+
 .header-bodega {
   min-height: 145px;
   background: white;
@@ -227,7 +201,8 @@ body {
   font-size: 15px;
 }
 
-/* Navegación */
+/* ── Navegación ─────────────────────────────────────────────────────────────── */
+
 .nav-bodega {
   display: flex;
   gap: 12px;
@@ -252,15 +227,14 @@ body {
   transform: translateY(-2px);
 }
 
-/* Contenedor del menú desplegable */
 .nav-dropdown {
   position: relative;
 }
 
-/* Menú oculto por defecto */
+/* El menú está oculto por defecto; se muestra con la clase --visible */
 .dropdown-menu {
   position: absolute;
-  top: 115%;
+  top: calc(100% + 8px);
   left: 0;
   min-width: 230px;
   background: #ffffff;
@@ -269,17 +243,15 @@ body {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
   padding: 10px;
   display: none;
-  z-index: 20;
+  z-index: 100;
 }
 
-/* Mostrar menú al pasar el mouse */
-.nav-dropdown:hover .dropdown-menu {
+.dropdown-menu--visible {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* Botones internos del desplegable */
 .dropdown-menu button {
   width: 100%;
   border: none;
@@ -291,7 +263,7 @@ body {
   padding: 11px 12px;
   border-radius: 10px;
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: background 0.15s, color 0.15s;
 }
 
 .dropdown-menu button:hover {
@@ -299,7 +271,15 @@ body {
   color: #0f7d39;
 }
 
-/* Usuario */
+/* Estado activo del botón nav cuando su menú está abierto */
+.nav-btn--activo {
+  background: #159947 !important;
+  color: white !important;
+  transform: translateY(-2px);
+}
+
+/* ── Usuario ─────────────────────────────────────────────────────────────────── */
+
 .usuario-bodega {
   min-width: 230px;
   background: #f0fdf4;
@@ -333,68 +313,268 @@ body {
   text-decoration: underline;
 }
 
-/* Contenido */
+/* ── Contenido ───────────────────────────────────────────────────────────────── */
+
 .contenido-bodega {
   flex: 1;
   padding: 32px;
 }
 
-.bienvenida-bodega {
+/* ── Módulo listado (productos / entregas / devoluciones) ─────────────────── */
+
+.modulo-listado {
   background: white;
-  border-left: 6px solid #159947;
   border-radius: 16px;
   padding: 26px 30px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
-  margin-bottom: 28px;
+  border-left: 6px solid #159947;
 }
 
-.bienvenida-bodega h2 {
+/* Encabezado del módulo con botón de acción a la derecha */
+.modulo-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.modulo-encabezado h2 {
   font-family: "Montserrat", sans-serif;
   color: #14532d;
-  margin: 0 0 10px;
-  font-size: 26px;
-}
-
-.bienvenida-bodega p {
-  color: #475569;
   margin: 0;
-  line-height: 1.6;
+  font-size: 22px;
 }
 
-/* Tarjetas */
-.resumen-bodega {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
+/* Botón "nuevo" — mismo verde institucional */
+.btn-nuevo {
+  background: #159947;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
 }
 
-.tarjeta-resumen {
+.btn-nuevo:hover {
+  background: #0f7d39;
+  transform: translateY(-2px);
+}
+
+/* Estado vacío */
+.estado-vacio {
+  text-align: center;
+  color: #6b7280;
+  padding: 3rem 0;
+}
+
+.estado-vacio p {
+  margin: 0.3rem 0;
+  font-size: 15px;
+}
+
+/* ── Tabla ───────────────────────────────────────────────────────────────────── */
+
+.tabla-contenedor {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.tabla-contenedor table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Roboto", Arial, sans-serif;
+}
+
+.tabla-contenedor th {
+  background: #159947;
+  color: white;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tabla-contenedor th:first-child {
+  border-radius: 8px 0 0 0;
+}
+
+.tabla-contenedor th:last-child {
+  border-radius: 0 8px 0 0;
+}
+
+.tabla-contenedor td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #dbe7df;
+  color: #334155;
+  font-size: 14px;
+  vertical-align: top;
+}
+
+.tabla-contenedor tr:last-child td {
+  border-bottom: none;
+}
+
+.tabla-contenedor tr:hover td {
+  background: #f0fdf4;
+}
+
+/* Botón eliminar dentro de la tabla */
+.btn-eliminar {
+  background: transparent;
+  color: #dc2626;
+  border: 1.5px solid #dc2626;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.btn-eliminar:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────────────── */
+
+.modal-fondo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  cursor: pointer;
+}
+
+.modal-bodega {
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
   background: white;
-  border-radius: 16px;
-  padding: 24px;
-  border-top: 5px solid #159947;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
-  transition: 0.2s ease;
+  border-radius: 18px;
+  padding: 30px;
+  position: relative;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  border-top: 6px solid #159947;
+  cursor: default;
 }
 
-.tarjeta-resumen:hover {
-  transform: translateY(-4px);
-}
-
-.tarjeta-resumen h3 {
+.modal-bodega h2 {
   font-family: "Montserrat", sans-serif;
   color: #14532d;
-  margin: 0 0 10px;
-  font-size: 21px;
+  margin: 0 0 22px;
+  font-size: 22px;
 }
 
-.tarjeta-resumen p {
-  color: #52635a;
-  margin: 0;
-  line-height: 1.5;
+.cerrar-modal-bodega {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-size: 28px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
 }
 
-/* Responsive */
+.cerrar-modal-bodega:hover {
+  color: #dc2626;
+}
+
+/* ── Formulario modal ────────────────────────────────────────────────────────── */
+
+.form-modal-bodega {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-modal-bodega .grupo-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-modal-bodega label {
+  color: #334155;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.form-modal-bodega input,
+.form-modal-bodega textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-size: 14px;
+  font-family: "Roboto", Arial, sans-serif;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  color: #1e293b;
+}
+
+.form-modal-bodega textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.form-modal-bodega input:focus,
+.form-modal-bodega textarea:focus {
+  outline: none;
+  border-color: #159947;
+  box-shadow: 0 0 0 2px rgba(21, 153, 71, 0.15);
+}
+
+.form-modal-bodega input::placeholder,
+.form-modal-bodega textarea::placeholder {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+/* Grupo doble (cantidad + unidad en la misma fila) */
+.grupo-doble {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* Botón guardar del modal */
+.btn-guardar-modal {
+  margin-top: 6px;
+  border: none;
+  background: #159947;
+  color: white;
+  padding: 13px;
+  border-radius: 12px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.btn-guardar-modal:hover {
+  background: #0f7d39;
+  transform: translateY(-1px);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+
 @media (max-width: 1050px) {
   .header-bodega {
     grid-template-columns: 1fr;
@@ -406,10 +586,6 @@ body {
 
   .usuario-bodega {
     width: 100%;
-  }
-
-  .resumen-bodega {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -434,10 +610,14 @@ body {
   .contenido-bodega {
     padding: 20px;
   }
-}
 
-.logo-bodega img {
-  max-width: 190px;
-  max-height: 105px;
-  object-fit: contain;
+  .modulo-encabezado {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .grupo-doble {
+    grid-template-columns: 1fr;
+  }
 }
