@@ -15,12 +15,17 @@ interface Producto {
   unidad: string;
 }
 
+interface LineaProducto {
+  productoId: string;
+  cantidad: number;
+}
+
 interface Entrega {
   id: string;
   personaEntrega: string;
   servicioEntrega: string;
   personaRecibe: string;
-  productos: string;
+  lineas: LineaProducto[];
   fechaHora: string;
 }
 
@@ -29,7 +34,7 @@ interface Devolucion {
   personaRecibe: string;
   servicioDevolucion: string;
   personaDevuelve: string;
-  productos: string;
+  lineas: LineaProducto[];
   fechaHora: string;
 }
 
@@ -65,10 +70,11 @@ function App() {
   // Navegación
   const [modalActivo, setModalActivo] = useState<ModalActivo>(null);
   const [vistaActual, setVistaActual] = useState<VistaActual>("productos");
-  const [menuAbierto, setMenuAbierto] = useState<"productos" | "entregas" | "devoluciones" | null>(null);
+  const [menuAbierto, setMenuAbierto] = useState<
+    "productos" | "entregas" | "devoluciones" | null
+  >(null);
   const navRef = useRef<HTMLElement>(null);
 
-  // Cierra el menú al hacer clic fuera del nav
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (navRef.current && !navRef.current.contains(e.target as Node)) {
@@ -90,58 +96,80 @@ function App() {
     leerLS<Devolucion[]>("devolucionesBodegaHRC", [])
   );
 
-  // Formulario producto
+  // ── Formulario producto ───────────────────────────────────────────────────
+
   const productoVacio = { nombre: "", descripcion: "", cantidad: 0, unidad: "" };
   const [formProducto, setFormProducto] = useState(productoVacio);
 
-  // Formulario entrega
+  // ── Formulario entrega ────────────────────────────────────────────────────
+
   const entregaVacia = {
     personaEntrega: "",
     servicioEntrega: "",
     personaRecibe: "",
-    productos: "",
     fechaHora: "",
   };
   const [formEntrega, setFormEntrega] = useState(entregaVacia);
+  const [lineasEntrega, setLineasEntrega] = useState<LineaProducto[]>([
+    { productoId: "", cantidad: 1 },
+  ]);
 
-  // Formulario devolución
+  // ID de la entrega que se está editando (null = modo creación)
+  const [entregaEditandoId, setEntregaEditandoId] = useState<string | null>(null);
+  // Líneas originales de la entrega antes de editar (para calcular diferencia de stock)
+  const [lineasEntregaOriginal, setLineasEntregaOriginal] = useState<LineaProducto[]>([]);
+
+  // ── Formulario devolución ─────────────────────────────────────────────────
+
   const devolucionVacia = {
     personaRecibe: "",
     servicioDevolucion: "",
     personaDevuelve: "",
-    productos: "",
     fechaHora: "",
   };
   const [formDevolucion, setFormDevolucion] = useState(devolucionVacia);
+  const [lineasDevolucion, setLineasDevolucion] = useState<LineaProducto[]>([
+    { productoId: "", cantidad: 1 },
+  ]);
+
+  // ── Helpers de líneas ─────────────────────────────────────────────────────
+
+  const agregarLinea = (
+    setter: React.Dispatch<React.SetStateAction<LineaProducto[]>>
+  ) => setter((prev) => [...prev, { productoId: "", cantidad: 1 }]);
+
+  const eliminarLinea = (
+    idx: number,
+    setter: React.Dispatch<React.SetStateAction<LineaProducto[]>>
+  ) => setter((prev) => prev.filter((_, i) => i !== idx));
+
+  const actualizarLinea = (
+    idx: number,
+    campo: keyof LineaProducto,
+    valor: string | number,
+    setter: React.Dispatch<React.SetStateAction<LineaProducto[]>>
+  ) =>
+    setter((prev) =>
+      prev.map((l, i) => (i === idx ? { ...l, [campo]: valor } : l))
+    );
 
   // ── Validaciones login ────────────────────────────────────────────────────
 
   const validarCorreo = (v: string) => v.endsWith("@redsalud.gov.cl");
   const validarPassword = (v: string) =>
-    v.length >= 7 &&
-    /[a-z]/.test(v) &&
-    /[A-Z]/.test(v) &&
-    /[0-9]/.test(v);
+    v.length >= 7 && /[a-z]/.test(v) && /[A-Z]/.test(v) && /[0-9]/.test(v);
 
   const manejarLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const errs = { correo: "", password: "" };
-
-    if (!correo.trim()) {
-      errs.correo = "El correo es obligatorio.";
-    } else if (!validarCorreo(correo)) {
+    if (!correo.trim()) errs.correo = "El correo es obligatorio.";
+    else if (!validarCorreo(correo))
       errs.correo = "El correo debe terminar en @redsalud.gov.cl";
-    }
-
-    if (!password.trim()) {
-      errs.password = "La contraseña es obligatoria.";
-    } else if (!validarPassword(password)) {
+    if (!password.trim()) errs.password = "La contraseña es obligatoria.";
+    else if (!validarPassword(password))
       errs.password =
         "Debe tener al menos 7 caracteres, una mayúscula, una minúscula y un número.";
-    }
-
     setErrores(errs);
-
     if (!errs.correo && !errs.password) {
       const u = { correo };
       escribirLS("usuarioSesion", u);
@@ -182,51 +210,186 @@ function App() {
 
   // ── CRUD Entregas ─────────────────────────────────────────────────────────
 
-  const guardarEntrega = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const { personaEntrega, servicioEntrega, personaRecibe, productos: prod, fechaHora } =
-      formEntrega;
-    if (!personaEntrega.trim() || !servicioEntrega.trim() || !personaRecibe.trim() || !prod.trim() || !fechaHora.trim()) {
-      alert("Debes completar todos los campos de la entrega.");
-      return;
-    }
-    const nueva: Entrega = { id: Date.now().toString(), ...formEntrega };
-    const lista = [...entregas, nueva];
-    setEntregas(lista);
-    escribirLS("entregasBodegaHRC", lista);
-    setFormEntrega(entregaVacia);
-    setModalActivo(null);
-    setVistaActual("entregas");
+  /** Abre el modal de entrega en modo edición, pre-cargando los datos existentes */
+  const abrirEditarEntrega = (entrega: Entrega) => {
+    setEntregaEditandoId(entrega.id);
+    setLineasEntregaOriginal(entrega.lineas);
+    setFormEntrega({
+      personaEntrega: entrega.personaEntrega,
+      servicioEntrega: entrega.servicioEntrega,
+      personaRecibe: entrega.personaRecibe,
+      fechaHora: entrega.fechaHora,
+    });
+    setLineasEntrega(entrega.lineas.map((l) => ({ ...l })));
+    setModalActivo("entrega");
   };
 
-  const eliminarEntrega = (id: string) => {
-    if (!confirm("¿Eliminar esta entrega?")) return;
-    const lista = entregas.filter((e) => e.id !== id);
-    setEntregas(lista);
-    escribirLS("entregasBodegaHRC", lista);
+  const cerrarModalEntrega = () => {
+    setModalActivo(null);
+    setEntregaEditandoId(null);
+    setLineasEntregaOriginal([]);
+    setFormEntrega(entregaVacia);
+    setLineasEntrega([{ productoId: "", cantidad: 1 }]);
+  };
+
+  const guardarEntrega = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const { personaEntrega, servicioEntrega, personaRecibe, fechaHora } =
+      formEntrega;
+
+    if (
+      !personaEntrega.trim() ||
+      !servicioEntrega.trim() ||
+      !personaRecibe.trim() ||
+      !fechaHora.trim()
+    ) {
+      alert("Completa todos los campos de la entrega.");
+      return;
+    }
+
+    const lineasValidas = lineasEntrega.filter((l) => l.productoId !== "");
+    if (lineasValidas.length === 0) {
+      alert("Debes seleccionar al menos un producto.");
+      return;
+    }
+    for (const l of lineasValidas) {
+      if (l.cantidad <= 0) {
+        alert("La cantidad de cada producto debe ser mayor a 0.");
+        return;
+      }
+    }
+
+    if (entregaEditandoId) {
+      // ── Modo edición ──────────────────────────────────────────────────────
+      // Calcular el stock disponible considerando que las líneas originales
+      // ya fueron descontadas: primero revertimos el original, luego
+      // comprobamos si hay stock suficiente para las nuevas líneas.
+
+      // Stock virtual = stock actual + lo que se había descontado antes
+      const stockVirtual: Record<string, number> = {};
+      productos.forEach((p) => (stockVirtual[p.id] = p.cantidad));
+      lineasEntregaOriginal.forEach((l) => {
+        if (stockVirtual[l.productoId] !== undefined) {
+          stockVirtual[l.productoId] += l.cantidad;
+        }
+      });
+
+      // Validar que el nuevo pedido cabe en el stock virtual
+      for (const l of lineasValidas) {
+        const disponible = stockVirtual[l.productoId] ?? 0;
+        if (l.cantidad > disponible) {
+          const prod = productos.find((p) => p.id === l.productoId);
+          alert(
+            `Stock insuficiente para "${prod?.nombre ?? l.productoId}". Disponible (considerando la entrega anterior): ${disponible} ${prod?.unidad ?? ""}.`
+          );
+          return;
+        }
+      }
+
+      // Aplicar diferencia de stock: revertir originales y descontar nuevas
+      const productosActualizados = productos.map((p) => {
+        const cantOriginal =
+          lineasEntregaOriginal.find((l) => l.productoId === p.id)?.cantidad ?? 0;
+        const cantNueva =
+          lineasValidas.find((l) => l.productoId === p.id)?.cantidad ?? 0;
+        return { ...p, cantidad: p.cantidad + cantOriginal - cantNueva };
+      });
+      setProductos(productosActualizados);
+      escribirLS("productosBodegaHRC", productosActualizados);
+
+      const lista = entregas.map((en) =>
+        en.id === entregaEditandoId
+          ? { ...en, ...formEntrega, lineas: lineasValidas }
+          : en
+      );
+      setEntregas(lista);
+      escribirLS("entregasBodegaHRC", lista);
+    } else {
+      // ── Modo creación ─────────────────────────────────────────────────────
+      for (const l of lineasValidas) {
+        const prod = productos.find((p) => p.id === l.productoId)!;
+        if (l.cantidad > prod.cantidad) {
+          alert(
+            `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.cantidad} ${prod.unidad}.`
+          );
+          return;
+        }
+      }
+
+      const productosActualizados = productos.map((p) => {
+        const linea = lineasValidas.find((l) => l.productoId === p.id);
+        return linea ? { ...p, cantidad: p.cantidad - linea.cantidad } : p;
+      });
+      setProductos(productosActualizados);
+      escribirLS("productosBodegaHRC", productosActualizados);
+
+      const nueva: Entrega = {
+        id: Date.now().toString(),
+        ...formEntrega,
+        lineas: lineasValidas,
+      };
+      const lista = [...entregas, nueva];
+      setEntregas(lista);
+      escribirLS("entregasBodegaHRC", lista);
+    }
+
+    cerrarModalEntrega();
+    setVistaActual("entregas");
   };
 
   // ── CRUD Devoluciones ─────────────────────────────────────────────────────
 
   const guardarDevolucion = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const { personaRecibe, servicioDevolucion, personaDevuelve, productos: prod, fechaHora } =
+    const { personaRecibe, servicioDevolucion, personaDevuelve, fechaHora } =
       formDevolucion;
-    if (!personaRecibe.trim() || !servicioDevolucion.trim() || !personaDevuelve.trim() || !prod.trim() || !fechaHora.trim()) {
-      alert("Debes completar todos los campos de la devolución.");
+
+    if (
+      !personaRecibe.trim() ||
+      !servicioDevolucion.trim() ||
+      !personaDevuelve.trim() ||
+      !fechaHora.trim()
+    ) {
+      alert("Completa todos los campos de la devolución.");
       return;
     }
-    const nueva: Devolucion = { id: Date.now().toString(), ...formDevolucion };
+
+    const lineasValidas = lineasDevolucion.filter((l) => l.productoId !== "");
+    if (lineasValidas.length === 0) {
+      alert("Debes seleccionar al menos un producto.");
+      return;
+    }
+    for (const l of lineasValidas) {
+      if (l.cantidad <= 0) {
+        alert("La cantidad de cada producto debe ser mayor a 0.");
+        return;
+      }
+    }
+
+    const productosActualizados = productos.map((p) => {
+      const linea = lineasValidas.find((l) => l.productoId === p.id);
+      return linea ? { ...p, cantidad: p.cantidad + linea.cantidad } : p;
+    });
+    setProductos(productosActualizados);
+    escribirLS("productosBodegaHRC", productosActualizados);
+
+    const nueva: Devolucion = {
+      id: Date.now().toString(),
+      ...formDevolucion,
+      lineas: lineasValidas,
+    };
     const lista = [...devoluciones, nueva];
     setDevoluciones(lista);
     escribirLS("devolucionesBodegaHRC", lista);
+
     setFormDevolucion(devolucionVacia);
+    setLineasDevolucion([{ productoId: "", cantidad: 1 }]);
     setModalActivo(null);
     setVistaActual("devoluciones");
   };
 
   const eliminarDevolucion = (id: string) => {
-    if (!confirm("¿Eliminar esta devolución?")) return;
+    if (!confirm("¿Eliminar esta devolución? El stock NO se revertirá.")) return;
     const lista = devoluciones.filter((d) => d.id !== id);
     setDevoluciones(lista);
     escribirLS("devolucionesBodegaHRC", lista);
@@ -236,8 +399,7 @@ function App() {
 
   const formatFecha = (iso: string) => {
     if (!iso) return "-";
-    const d = new Date(iso);
-    return d.toLocaleString("es-CL", {
+    return new Date(iso).toLocaleString("es-CL", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -245,6 +407,165 @@ function App() {
       minute: "2-digit",
     });
   };
+
+  const lineasATexto = (lineas: LineaProducto[]) =>
+    lineas
+      .map((l) => {
+        const p = productos.find((x) => x.id === l.productoId);
+        return p ? `${p.nombre} × ${l.cantidad} ${p.unidad}` : "—";
+      })
+      .join(", ");
+
+  // ── Componente: selector de líneas de producto ────────────────────────────
+
+  const SelectorProductos = ({
+    lineas,
+    setLineas,
+    modo,
+    stockVirtualOverride,
+  }: {
+    lineas: LineaProducto[];
+    setLineas: React.Dispatch<React.SetStateAction<LineaProducto[]>>;
+    modo: "entrega" | "devolucion";
+    /** Stock a mostrar en lugar del real (usado en modo edición para sumar lo ya descontado) */
+    stockVirtualOverride?: Record<string, number>;
+  }) => {
+    const seleccionados = lineas.map((l) => l.productoId).filter(Boolean);
+
+    return (
+      <div className="selector-productos">
+        <label className="selector-label">Productos *</label>
+
+        {lineas.map((linea, idx) => {
+          const prodActual = productos.find((p) => p.id === linea.productoId);
+
+          // Stock a mostrar: si hay override (edición), usar ese; si no, el real
+          const stockBase =
+            stockVirtualOverride && linea.productoId
+              ? (stockVirtualOverride[linea.productoId] ?? 0)
+              : (prodActual?.cantidad ?? 0);
+
+          const maxCantidad =
+            modo === "entrega" && prodActual
+              ? stockBase -
+                lineas.reduce(
+                  (acc, l, i) =>
+                    i !== idx && l.productoId === linea.productoId
+                      ? acc + l.cantidad
+                      : acc,
+                  0
+                )
+              : 9999;
+
+          return (
+            <div key={idx} className="linea-producto">
+              <select
+                value={linea.productoId}
+                className="select-producto"
+                onChange={(e) =>
+                  actualizarLinea(idx, "productoId", e.target.value, setLineas)
+                }
+              >
+                <option value="">— Seleccionar producto —</option>
+                {productos.map((p) => {
+                  const yaUsado =
+                    seleccionados.includes(p.id) && linea.productoId !== p.id;
+                  const stockMostrar =
+                    stockVirtualOverride
+                      ? (stockVirtualOverride[p.id] ?? p.cantidad)
+                      : p.cantidad;
+                  return (
+                    <option key={p.id} value={p.id} disabled={yaUsado}>
+                      {p.nombre}
+                      {modo === "entrega"
+                        ? ` (stock: ${stockMostrar} ${p.unidad})`
+                        : ` (${p.unidad})`}
+                    </option>
+                  );
+                })}
+              </select>
+
+              <input
+                type="number"
+                min={1}
+                max={modo === "entrega" ? maxCantidad : undefined}
+                value={linea.cantidad}
+                className="input-cantidad-linea"
+                disabled={!linea.productoId}
+                onChange={(e) =>
+                  actualizarLinea(
+                    idx,
+                    "cantidad",
+                    Math.max(1, Number(e.target.value)),
+                    setLineas
+                  )
+                }
+              />
+
+              {prodActual && (
+                <span className="etiqueta-unidad">
+                  {prodActual.unidad}
+                  {modo === "entrega" && (
+                    <span
+                      className={
+                        linea.cantidad > maxCantidad
+                          ? "stock-insuficiente"
+                          : "stock-ok"
+                      }
+                    >
+                      &nbsp;(disp: {maxCantidad})
+                    </span>
+                  )}
+                </span>
+              )}
+
+              {lineas.length > 1 && (
+                <button
+                  type="button"
+                  className="btn-quitar-linea"
+                  onClick={() => eliminarLinea(idx, setLineas)}
+                  title="Quitar línea"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {productos.length > lineas.filter((l) => l.productoId).length && (
+          <button
+            type="button"
+            className="btn-agregar-linea"
+            onClick={() => agregarLinea(setLineas)}
+          >
+            + Agregar otro producto
+          </button>
+        )}
+
+        {productos.length === 0 && (
+          <p className="aviso-sin-productos">
+            No hay productos en bodega. Agrégalos primero desde el menú
+            Productos.
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  // Stock virtual para el modal de edición: stock actual + lo que la entrega
+  // original había descontado (para que el usuario vea el stock "disponible real")
+  const stockVirtualEdicion: Record<string, number> | undefined =
+    entregaEditandoId
+      ? (() => {
+          const sv: Record<string, number> = {};
+          productos.forEach((p) => (sv[p.id] = p.cantidad));
+          lineasEntregaOriginal.forEach((l) => {
+            if (sv[l.productoId] !== undefined) sv[l.productoId] += l.cantidad;
+          });
+          return sv;
+        })()
+      : undefined;
 
   // ── Vista: Login ──────────────────────────────────────────────────────────
 
@@ -254,7 +575,6 @@ function App() {
         <section className="login-card">
           <h1>Intranet RedSalud</h1>
           <p>Ingrese sus credenciales para continuar</p>
-
           <form onSubmit={manejarLogin} className="login-form">
             <div className="form-grupo">
               <label htmlFor="correo">Correo institucional</label>
@@ -266,9 +586,10 @@ function App() {
                 placeholder="usuario@redsalud.gov.cl"
                 className={errores.correo ? "input-error" : ""}
               />
-              {errores.correo && <span className="error-texto">{errores.correo}</span>}
+              {errores.correo && (
+                <span className="error-texto">{errores.correo}</span>
+              )}
             </div>
-
             <div className="form-grupo">
               <label htmlFor="password">Contraseña</label>
               <input
@@ -283,7 +604,6 @@ function App() {
                 <span className="error-texto">{errores.password}</span>
               )}
             </div>
-
             <button type="submit" className="btn-login">
               Iniciar sesión
             </button>
@@ -437,7 +757,7 @@ function App() {
         {/* Contenido principal */}
         <main className="contenido-bodega">
 
-          {/* ── Vista: Productos ─────────────────────────────────────────── */}
+          {/* ── Vista: Productos ─────────────────────────────────────── */}
           {vistaActual === "productos" && (
             <section className="modulo-listado">
               <div className="modulo-encabezado">
@@ -463,7 +783,7 @@ function App() {
                       <tr>
                         <th>Nombre</th>
                         <th>Descripción</th>
-                        <th>Cantidad</th>
+                        <th>Stock actual</th>
                         <th>Unidad</th>
                         <th>Acción</th>
                       </tr>
@@ -472,8 +792,20 @@ function App() {
                       {productos.map((p) => (
                         <tr key={p.id}>
                           <td>{p.nombre}</td>
-                          <td>{p.descripcion || "-"}</td>
-                          <td>{p.cantidad}</td>
+                          <td>{p.descripcion || "—"}</td>
+                          <td>
+                            <span
+                              className={
+                                p.cantidad === 0
+                                  ? "badge-stock badge-stock--vacio"
+                                  : p.cantidad <= 5
+                                  ? "badge-stock badge-stock--bajo"
+                                  : "badge-stock badge-stock--ok"
+                              }
+                            >
+                              {p.cantidad}
+                            </span>
+                          </td>
                           <td>{p.unidad}</td>
                           <td>
                             <button
@@ -493,7 +825,7 @@ function App() {
             </section>
           )}
 
-          {/* ── Vista: Entregas ──────────────────────────────────────────── */}
+          {/* ── Vista: Entregas ──────────────────────────────────────── */}
           {vistaActual === "entregas" && (
             <section className="modulo-listado">
               <div className="modulo-encabezado">
@@ -501,7 +833,13 @@ function App() {
                 <button
                   type="button"
                   className="btn-nuevo"
-                  onClick={() => setModalActivo("entrega")}
+                  onClick={() => {
+                    setEntregaEditandoId(null);
+                    setLineasEntregaOriginal([]);
+                    setFormEntrega(entregaVacia);
+                    setLineasEntrega([{ productoId: "", cantidad: 1 }]);
+                    setModalActivo("entrega");
+                  }}
                 >
                   + Nueva entrega
                 </button>
@@ -519,7 +857,7 @@ function App() {
                         <th>Quien entrega</th>
                         <th>Servicio destino</th>
                         <th>Quien recibe</th>
-                        <th>Productos</th>
+                        <th>Productos entregados</th>
                         <th>Fecha y hora</th>
                         <th>Acción</th>
                       </tr>
@@ -530,15 +868,17 @@ function App() {
                           <td>{en.personaEntrega}</td>
                           <td>{en.servicioEntrega}</td>
                           <td>{en.personaRecibe}</td>
-                          <td>{en.productos}</td>
+                          <td className="td-productos">
+                            {lineasATexto(en.lineas)}
+                          </td>
                           <td>{formatFecha(en.fechaHora)}</td>
                           <td>
                             <button
                               type="button"
-                              className="btn-eliminar"
-                              onClick={() => eliminarEntrega(en.id)}
+                              className="btn-editar"
+                              onClick={() => abrirEditarEntrega(en)}
                             >
-                              Eliminar
+                              Editar
                             </button>
                           </td>
                         </tr>
@@ -550,7 +890,7 @@ function App() {
             </section>
           )}
 
-          {/* ── Vista: Devoluciones ──────────────────────────────────────── */}
+          {/* ── Vista: Devoluciones ──────────────────────────────────── */}
           {vistaActual === "devoluciones" && (
             <section className="modulo-listado">
               <div className="modulo-encabezado">
@@ -576,7 +916,7 @@ function App() {
                         <th>Quien recibe</th>
                         <th>Servicio origen</th>
                         <th>Quien devuelve</th>
-                        <th>Productos</th>
+                        <th>Productos devueltos</th>
                         <th>Fecha y hora</th>
                         <th>Acción</th>
                       </tr>
@@ -587,7 +927,9 @@ function App() {
                           <td>{dev.personaRecibe}</td>
                           <td>{dev.servicioDevolucion}</td>
                           <td>{dev.personaDevuelve}</td>
-                          <td>{dev.productos}</td>
+                          <td className="td-productos">
+                            {lineasATexto(dev.lineas)}
+                          </td>
                           <td>{formatFecha(dev.fechaHora)}</td>
                           <td>
                             <button
@@ -608,7 +950,7 @@ function App() {
           )}
         </main>
 
-        {/* ── Modal: Agregar producto ───────────────────────────────────────── */}
+        {/* ── Modal: Agregar producto ───────────────────────────────────── */}
         {modalActivo === "producto" && (
           <div className="modal-fondo" onClick={() => setModalActivo(null)}>
             <div className="modal-bodega" onClick={(e) => e.stopPropagation()}>
@@ -619,9 +961,7 @@ function App() {
               >
                 ×
               </button>
-
               <h2>Agregar producto</h2>
-
               <form onSubmit={guardarProducto} className="form-modal-bodega">
                 <div className="grupo-formulario">
                   <label>Nombre del producto *</label>
@@ -634,21 +974,22 @@ function App() {
                     }
                   />
                 </div>
-
                 <div className="grupo-formulario">
                   <label>Descripción</label>
                   <textarea
                     value={formProducto.descripcion}
                     placeholder="Descripción opcional"
                     onChange={(e) =>
-                      setFormProducto({ ...formProducto, descripcion: e.target.value })
+                      setFormProducto({
+                        ...formProducto,
+                        descripcion: e.target.value,
+                      })
                     }
                   />
                 </div>
-
                 <div className="grupo-formulario grupo-doble">
                   <div>
-                    <label>Cantidad *</label>
+                    <label>Cantidad inicial *</label>
                     <input
                       type="number"
                       min={0}
@@ -668,12 +1009,14 @@ function App() {
                       value={formProducto.unidad}
                       placeholder="Ej: Caja, Unidad, Kg"
                       onChange={(e) =>
-                        setFormProducto({ ...formProducto, unidad: e.target.value })
+                        setFormProducto({
+                          ...formProducto,
+                          unidad: e.target.value,
+                        })
                       }
                     />
                   </div>
                 </div>
-
                 <button type="submit" className="btn-guardar-modal">
                   Guardar producto
                 </button>
@@ -682,20 +1025,18 @@ function App() {
           </div>
         )}
 
-        {/* ── Modal: Crear entrega ──────────────────────────────────────────── */}
+        {/* ── Modal: Crear / Editar entrega ─────────────────────────────── */}
         {modalActivo === "entrega" && (
-          <div className="modal-fondo" onClick={() => setModalActivo(null)}>
+          <div className="modal-fondo" onClick={cerrarModalEntrega}>
             <div className="modal-bodega" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
                 className="cerrar-modal-bodega"
-                onClick={() => setModalActivo(null)}
+                onClick={cerrarModalEntrega}
               >
                 ×
               </button>
-
-              <h2>Crear entrega</h2>
-
+              <h2>{entregaEditandoId ? "Editar entrega" : "Crear entrega"}</h2>
               <form onSubmit={guardarEntrega} className="form-modal-bodega">
                 <div className="grupo-formulario">
                   <label>Persona que entrega *</label>
@@ -704,11 +1045,13 @@ function App() {
                     value={formEntrega.personaEntrega}
                     placeholder="Nombre completo"
                     onChange={(e) =>
-                      setFormEntrega({ ...formEntrega, personaEntrega: e.target.value })
+                      setFormEntrega({
+                        ...formEntrega,
+                        personaEntrega: e.target.value,
+                      })
                     }
                   />
                 </div>
-
                 <div className="grupo-formulario">
                   <label>Nombre del servicio al que se le entrega *</label>
                   <input
@@ -716,11 +1059,13 @@ function App() {
                     value={formEntrega.servicioEntrega}
                     placeholder="Ej: Urgencias, Pabellón..."
                     onChange={(e) =>
-                      setFormEntrega({ ...formEntrega, servicioEntrega: e.target.value })
+                      setFormEntrega({
+                        ...formEntrega,
+                        servicioEntrega: e.target.value,
+                      })
                     }
                   />
                 </div>
-
                 <div className="grupo-formulario">
                   <label>Persona que recibe *</label>
                   <input
@@ -728,21 +1073,20 @@ function App() {
                     value={formEntrega.personaRecibe}
                     placeholder="Nombre completo"
                     onChange={(e) =>
-                      setFormEntrega({ ...formEntrega, personaRecibe: e.target.value })
+                      setFormEntrega({
+                        ...formEntrega,
+                        personaRecibe: e.target.value,
+                      })
                     }
                   />
                 </div>
 
-                <div className="grupo-formulario">
-                  <label>Productos *</label>
-                  <textarea
-                    value={formEntrega.productos}
-                    placeholder="Lista de productos entregados"
-                    onChange={(e) =>
-                      setFormEntrega({ ...formEntrega, productos: e.target.value })
-                    }
-                  />
-                </div>
+                <SelectorProductos
+                  lineas={lineasEntrega}
+                  setLineas={setLineasEntrega}
+                  modo="entrega"
+                  stockVirtualOverride={stockVirtualEdicion}
+                />
 
                 <div className="grupo-formulario">
                   <label>Fecha y hora *</label>
@@ -754,16 +1098,15 @@ function App() {
                     }
                   />
                 </div>
-
                 <button type="submit" className="btn-guardar-modal">
-                  Guardar entrega
+                  {entregaEditandoId ? "Guardar cambios" : "Guardar entrega"}
                 </button>
               </form>
             </div>
           </div>
         )}
 
-        {/* ── Modal: Crear devolución ───────────────────────────────────────── */}
+        {/* ── Modal: Crear devolución ───────────────────────────────────── */}
         {modalActivo === "devolucion" && (
           <div className="modal-fondo" onClick={() => setModalActivo(null)}>
             <div className="modal-bodega" onClick={(e) => e.stopPropagation()}>
@@ -774,9 +1117,7 @@ function App() {
               >
                 ×
               </button>
-
               <h2>Crear devolución</h2>
-
               <form onSubmit={guardarDevolucion} className="form-modal-bodega">
                 <div className="grupo-formulario">
                   <label>Persona que recibe *</label>
@@ -792,7 +1133,6 @@ function App() {
                     }
                   />
                 </div>
-
                 <div className="grupo-formulario">
                   <label>Nombre del servicio que realiza la devolución *</label>
                   <input
@@ -807,7 +1147,6 @@ function App() {
                     }
                   />
                 </div>
-
                 <div className="grupo-formulario">
                   <label>Persona que devuelve *</label>
                   <input
@@ -823,19 +1162,11 @@ function App() {
                   />
                 </div>
 
-                <div className="grupo-formulario">
-                  <label>Productos *</label>
-                  <textarea
-                    value={formDevolucion.productos}
-                    placeholder="Lista de productos devueltos"
-                    onChange={(e) =>
-                      setFormDevolucion({
-                        ...formDevolucion,
-                        productos: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+                <SelectorProductos
+                  lineas={lineasDevolucion}
+                  setLineas={setLineasDevolucion}
+                  modo="devolucion"
+                />
 
                 <div className="grupo-formulario">
                   <label>Fecha y hora *</label>
@@ -850,7 +1181,6 @@ function App() {
                     }
                   />
                 </div>
-
                 <button type="submit" className="btn-guardar-modal">
                   Guardar devolución
                 </button>
