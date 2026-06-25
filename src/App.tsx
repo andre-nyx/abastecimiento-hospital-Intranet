@@ -92,11 +92,33 @@ function App() {
             <p>Gestión interna de productos, entregas y devoluciones</p>
           </div>
 
-          <nav className="nav-bodega">
-            <button type="button">Productos</button>
-            <button type="button">Entregas</button>
-            <button type="button">Devoluciones</button>
-          </nav>
+      <nav className="nav-bodega">
+        <button type="button" className="nav-btn">
+          Productos
+        </button>
+
+        <div className="nav-dropdown">
+          <button type="button" className="nav-btn">
+            Entregas
+          </button>
+
+          <div className="dropdown-menu">
+            <button type="button">Crear entrega</button>
+            <button type="button">Ver todas las entregas</button>
+          </div>
+        </div>
+
+        <div className="nav-dropdown">
+          <button type="button" className="nav-btn">
+            Devoluciones
+          </button>
+
+          <div className="dropdown-menu">
+            <button type="button">Crear devolución</button>
+            <button type="button">Ver todas las devoluciones</button>
+          </div>
+        </div>
+</nav>
 
           <div className="usuario-bodega">
             <span>{usuario.correo}</span>
