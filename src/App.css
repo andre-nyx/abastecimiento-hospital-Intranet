@@ -138,3 +138,258 @@ body {
 .btn-cerrar:hover {
   background: #b91c1c;
 }
+
+
+.sistema-bodega {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  background: #f4f7f5;
+  font-family: "Roboto", Arial, sans-serif;
+}
+
+/* Barra lateral */
+.sidebar-bodega {
+  width: 270px;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #159947 0%, #0f7d39 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.12);
+}
+
+.logo-bodega {
+  height: 145px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  border-bottom: 4px solid #0f7d39;
+}
+
+.logo-bodega img {
+  max-width: 190px;
+  max-height: 105px;
+  object-fit: contain;
+}
+
+.sidebar-info {
+  padding: 28px 24px;
+}
+
+.sidebar-info h2 {
+  font-family: "Montserrat", sans-serif;
+  font-size: 34px;
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.sidebar-info p {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.4;
+  opacity: 0.95;
+}
+
+/* Panel derecho */
+.panel-bodega {
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header-bodega {
+  min-height: 145px;
+  background: white;
+  border-bottom: 1px solid #dbe7df;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 32px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+.titulo-bodega h1 {
+  font-family: "Montserrat", sans-serif;
+  color: #14532d;
+  font-size: 30px;
+  margin: 0;
+}
+
+.titulo-bodega p {
+  color: #52635a;
+  margin: 8px 0 0;
+  font-size: 15px;
+}
+
+/* Navegación */
+.nav-bodega {
+  display: flex;
+  gap: 12px;
+}
+
+.nav-bodega button {
+  font-family: "Montserrat", sans-serif;
+  font-size: 15px;
+  border: 2px solid #159947;
+  background: #ffffff;
+  color: #14532d;
+  padding: 13px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.nav-bodega button:hover {
+  background: #159947;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Usuario */
+.usuario-bodega {
+  min-width: 230px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.usuario-bodega span {
+  font-size: 14px;
+  color: #14532d;
+  word-break: break-word;
+  font-weight: 500;
+}
+
+.usuario-bodega button {
+  width: fit-content;
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.usuario-bodega button:hover {
+  text-decoration: underline;
+}
+
+/* Contenido */
+.contenido-bodega {
+  flex: 1;
+  padding: 32px;
+}
+
+.bienvenida-bodega {
+  background: white;
+  border-left: 6px solid #159947;
+  border-radius: 16px;
+  padding: 26px 30px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
+  margin-bottom: 28px;
+}
+
+.bienvenida-bodega h2 {
+  font-family: "Montserrat", sans-serif;
+  color: #14532d;
+  margin: 0 0 10px;
+  font-size: 26px;
+}
+
+.bienvenida-bodega p {
+  color: #475569;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Tarjetas */
+.resumen-bodega {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.tarjeta-resumen {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  border-top: 5px solid #159947;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
+  transition: 0.2s ease;
+}
+
+.tarjeta-resumen:hover {
+  transform: translateY(-4px);
+}
+
+.tarjeta-resumen h3 {
+  font-family: "Montserrat", sans-serif;
+  color: #14532d;
+  margin: 0 0 10px;
+  font-size: 21px;
+}
+
+.tarjeta-resumen p {
+  color: #52635a;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 1050px) {
+  .header-bodega {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-bodega {
+    flex-wrap: wrap;
+  }
+
+  .usuario-bodega {
+    width: 100%;
+  }
+
+  .resumen-bodega {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .sistema-bodega {
+    flex-direction: column;
+  }
+
+  .sidebar-bodega {
+    width: 100%;
+    min-height: auto;
+  }
+
+  .logo-bodega {
+    height: 110px;
+  }
+
+  .sidebar-info {
+    padding: 18px 22px;
+  }
+
+  .contenido-bodega {
+    padding: 20px;
+  }
+}
+
+.logo-bodega img {
+  max-width: 190px;
+  max-height: 105px;
+  object-fit: contain;
+}

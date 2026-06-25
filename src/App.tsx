@@ -72,19 +72,53 @@ function App() {
   };
 
   if (usuario) {
-    return (
-      <div className="dashboard">
-        <div className="dashboard-card">
-          <h1>Sistema de Bodega HRC</h1>
-          <p>Bienvenido, {usuario.correo}</p>
-
-          <button onClick={cerrarSesion} className="btn-cerrar">
-            Cerrar sesión
-          </button>
+  return (
+    <div className="sistema-bodega">
+      <aside className="sidebar-bodega">
+        <div className="logo-bodega">
+          <img src="/hospitalcopiapo_logo.png" alt="Logo Hospital Copiapó" />
         </div>
-      </div>
-    );
-  }
+
+        <div className="sidebar-info">
+          <h2>HRC</h2>
+          <p>Unidad de Abastecimiento</p>
+        </div>
+      </aside>
+
+      <section className="panel-bodega">
+        <header className="header-bodega">
+          <div className="titulo-bodega">
+            <h1>Sistema de Bodega HRC</h1>
+            <p>Gestión interna de productos, entregas y devoluciones</p>
+          </div>
+
+          <nav className="nav-bodega">
+            <button type="button">Productos</button>
+            <button type="button">Entregas</button>
+            <button type="button">Devoluciones</button>
+          </nav>
+
+          <div className="usuario-bodega">
+            <span>{usuario.correo}</span>
+            <button type="button" onClick={cerrarSesion}>
+              Cerrar sesión
+            </button>
+          </div>
+        </header>
+
+        <main className="contenido-bodega">
+          <section className="bienvenida-bodega">
+            <h2>Panel principal</h2>
+            <p>
+              Bienvenido al sistema interno de bodega. Desde aquí podrás gestionar
+              productos, registrar entregas y controlar devoluciones de insumos.
+            </p>
+          </section>
+        </main>
+      </section>
+    </div>
+  );
+}
 
   return (
     <main className="login-container">
