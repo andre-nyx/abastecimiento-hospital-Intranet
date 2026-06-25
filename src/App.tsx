@@ -1,5 +1,7 @@
+import Productos from "./pages/Productos";
 import { useState } from "react";
 import "./App.css";
+
 
 interface UsuarioSesion {
   correo: string;
@@ -12,6 +14,7 @@ function App() {
     correo: "",
     password: "",
   });
+  const [vistaActual, setVistaActual] = useState("inicio");
 
   const [usuario, setUsuario] = useState<UsuarioSesion | null>(() => {
     const sesionGuardada = localStorage.getItem("usuarioSesion");
@@ -93,7 +96,7 @@ function App() {
           </div>
 
       <nav className="nav-bodega">
-        <button type="button" className="nav-btn">
+        <button type="button" className="nav-btn" onClick={() => setVistaActual("productos")}>
           Productos
         </button>
 
@@ -129,13 +132,19 @@ function App() {
         </header>
 
         <main className="contenido-bodega">
-          <section className="bienvenida-bodega">
-            <h2>Panel principal</h2>
-            <p>
-              Bienvenido al sistema interno de bodega. Desde aquí podrás gestionar
-              productos, registrar entregas y controlar devoluciones de insumos.
-            </p>
-          </section>
+          {vistaActual === "inicio" && (
+            <section className="bienvenida-bodega">
+              <h2>Panel principal</h2>
+              <p>
+                Bienvenido al sistema interno de bodega. Desde aquí podrás gestionar
+                productos, registrar entregas y controlar devoluciones de insumos.
+              </p>
+            </section>
+          )}
+
+          {vistaActual === "productos" && (
+            <Productos />
+          )}
         </main>
       </section>
     </div>
