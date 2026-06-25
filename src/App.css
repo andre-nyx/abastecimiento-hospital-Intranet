@@ -231,9 +231,10 @@ body {
 .nav-bodega {
   display: flex;
   gap: 12px;
+  align-items: center;
 }
 
-.nav-bodega button {
+.nav-btn {
   font-family: "Montserrat", sans-serif;
   font-size: 15px;
   border: 2px solid #159947;
@@ -245,10 +246,57 @@ body {
   transition: 0.2s ease;
 }
 
-.nav-bodega button:hover {
+.nav-btn:hover {
   background: #159947;
   color: white;
   transform: translateY(-2px);
+}
+
+/* Contenedor del menú desplegable */
+.nav-dropdown {
+  position: relative;
+}
+
+/* Menú oculto por defecto */
+.dropdown-menu {
+  position: absolute;
+  top: 115%;
+  left: 0;
+  min-width: 230px;
+  background: #ffffff;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  padding: 10px;
+  display: none;
+  z-index: 20;
+}
+
+/* Mostrar menú al pasar el mouse */
+.nav-dropdown:hover .dropdown-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Botones internos del desplegable */
+.dropdown-menu button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #14532d;
+  font-family: "Roboto", Arial, sans-serif;
+  font-size: 14px;
+  text-align: left;
+  padding: 11px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.dropdown-menu button:hover {
+  background: #dcfce7;
+  color: #0f7d39;
 }
 
 /* Usuario */
