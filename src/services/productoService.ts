@@ -1,6 +1,6 @@
 import type { Producto } from '../types/Producto';
 
-const STRORAGE_KEY = 'productos';
+const STRORAGE_KEY = "productos";
 
 export const ObtenerProductos = (): Producto[] => {
     const productos = localStorage.getItem(STRORAGE_KEY);
