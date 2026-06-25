@@ -441,3 +441,154 @@ body {
   max-height: 105px;
   object-fit: contain;
 }
+
+.modal-fondo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-bodega {
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: white;
+  border-radius: 18px;
+  padding: 30px;
+  position: relative;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  border-top: 6px solid #159947;
+}
+
+.modal-bodega h2 {
+  font-family: "Montserrat", sans-serif;
+  color: #14532d;
+  margin: 0 0 22px;
+  font-size: 25px;
+}
+
+.cerrar-modal-bodega {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-size: 30px;
+  cursor: pointer;
+}
+
+.cerrar-modal-bodega:hover {
+  color: #dc2626;
+}
+
+.form-modal-bodega {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-modal-bodega .grupo-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-modal-bodega label {
+  color: #334155;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.form-modal-bodega input,
+.form-modal-bodega textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px;
+  font-family: "Roboto", Arial, sans-serif;
+}
+
+.form-modal-bodega textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.form-modal-bodega input:focus,
+.form-modal-bodega textarea:focus {
+  outline: none;
+  border-color: #159947;
+  box-shadow: 0 0 0 2px rgba(21, 153, 71, 0.15);
+}
+
+.btn-guardar-modal {
+  margin-top: 8px;
+  border: none;
+  background: #159947;
+  color: white;
+  padding: 13px;
+  border-radius: 12px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.btn-guardar-modal:hover {
+  background: #0f7d39;
+}
+
+/* Listados */
+.modulo-listado {
+  background: white;
+  border-radius: 16px;
+  padding: 26px 30px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
+  border-left: 6px solid #159947;
+}
+
+.modulo-listado h2 {
+  font-family: "Montserrat", sans-serif;
+  color: #14532d;
+  margin: 0 0 18px;
+}
+
+.tabla-contenedor {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.tabla-contenedor table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Roboto", Arial, sans-serif;
+}
+
+.tabla-contenedor th {
+  background: #159947;
+  color: white;
+  padding: 12px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.tabla-contenedor td {
+  padding: 12px;
+  border-bottom: 1px solid #dbe7df;
+  color: #334155;
+  font-size: 14px;
+}
+
+.tabla-contenedor tr:hover {
+  background: #f0fdf4;
+}
