@@ -35,3 +35,4 @@ Abres la terminal y ejecutas los siguientes comandos
 cd Directorio
 npm install
 npm install firebase
+npm run dev
