@@ -7,7 +7,7 @@ import {
 } from "firebase/auth";
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, getFirestore } from "firebase/firestore";
 import { auth, db } from "../firebase/firebaseConfig";
 
 export type Rol = "admin" | "usuario";
@@ -55,9 +55,28 @@ async function obtenerRol(uid: string): Promise<Rol> {
  * con rol "admin" en Firestore. Usa una app secundaria de Firebase para no
  * interferir con la sesión activa. Debe llamarse una vez al iniciar la app.
  */
-export async function asegurarAdminExiste(): Promise<void> {
+/**
+ * Se asegura de que exista la cuenta admin fija (admin@redsalud.gov.cl / Admin123)
+ * con rol "admin" en Firestore. Usa una app secundaria de Firebase para no
+ * interferir con la sesión activa. Debe llamarse una vez al iniciar la app.
+ *
+ * Protegido con un candado a nivel de módulo: si se llama varias veces en
+ * paralelo (ej. por React Strict Mode ejecutando el efecto dos veces), solo
+ * se ejecuta una vez real, evitando crear cuentas admin duplicadas.
+ */
+let asegurarAdminPromise: Promise<void> | null = null;
+
+export function asegurarAdminExiste(): Promise<void> {
+  if (!asegurarAdminPromise) {
+    asegurarAdminPromise = asegurarAdminExisteInterno();
+  }
+  return asegurarAdminPromise;
+}
+
+async function asegurarAdminExisteInterno(): Promise<void> {
   const appSecundaria = obtenerAppSecundaria();
   const authSecundaria = getAuth(appSecundaria);
+  const dbSecundaria = getFirestore(appSecundaria);
   try {
     // Intenta iniciar sesión con la cuenta admin en la instancia secundaria
     const cred = await signInWithEmailAndPassword(
@@ -65,9 +84,12 @@ export async function asegurarAdminExiste(): Promise<void> {
       ADMIN_CORREO,
       ADMIN_PASSWORD
     );
-    // Ya existe: asegura que su documento de rol esté correcto
+    // Ya existe: asegura que su documento de rol esté correcto.
+    // Se escribe usando dbSecundaria porque en este punto authSecundaria
+    // SÍ tiene sesión activa (necesario si las reglas de Firestore exigen
+    // request.auth != null); la app principal (auth/db) aún no tiene sesión.
     await setDoc(
-      doc(db, "usuarios", cred.user.uid),
+      doc(dbSecundaria, "usuarios", cred.user.uid),
       { correo: ADMIN_CORREO, rol: "admin" },
       { merge: true }
     );
@@ -85,7 +107,7 @@ export async function asegurarAdminExiste(): Promise<void> {
           ADMIN_CORREO,
           ADMIN_PASSWORD
         );
-        await setDoc(doc(db, "usuarios", cred.user.uid), {
+        await setDoc(doc(dbSecundaria, "usuarios", cred.user.uid), {
           correo: ADMIN_CORREO,
           rol: "admin",
         });
@@ -127,13 +149,14 @@ export async function crearUsuario(
 ): Promise<void> {
   const appSecundaria = obtenerAppSecundaria();
   const authSecundaria = getAuth(appSecundaria);
+  const dbSecundaria = getFirestore(appSecundaria);
   try {
     const cred = await createUserWithEmailAndPassword(
       authSecundaria,
       correo,
       password
     );
-    await setDoc(doc(db, "usuarios", cred.user.uid), { correo, rol });
+    await setDoc(doc(dbSecundaria, "usuarios", cred.user.uid), { correo, rol });
   } finally {
     await signOut(authSecundaria).catch(() => {});
   }
