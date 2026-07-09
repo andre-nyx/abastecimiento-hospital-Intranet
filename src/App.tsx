@@ -202,6 +202,40 @@ function App() {
       prev.map((l, i) => (i === idx ? { ...l, [campo]: valor } : l))
     );
 
+  // ── Utilidad: fecha/hora actual para <input type="datetime-local"> ───────
+  // Se usa para autocompletar y "sellar" la fecha/hora real al crear
+  // entregas y devoluciones, evitando que se ingresen fechas pasadas o futuras.
+  const obtenerFechaHoraLocal = () => {
+    const ahora = new Date();
+    const offsetMs = ahora.getTimezoneOffset() * 60000;
+    const local = new Date(ahora.getTime() - offsetMs);
+    return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+  };
+
+  // Mientras el modal de ENTREGA está abierto en modo creación (no edición),
+  // mantiene el campo fechaHora actualizado con la hora real cada segundo.
+  useEffect(() => {
+    if (modalActivo === "entrega" && !entregaEditandoId) {
+      const actualizar = () =>
+        setFormEntrega((prev) => ({ ...prev, fechaHora: obtenerFechaHoraLocal() }));
+      actualizar();
+      const intervalo = setInterval(actualizar, 1000);
+      return () => clearInterval(intervalo);
+    }
+  }, [modalActivo, entregaEditandoId]);
+
+  // Mientras el modal de DEVOLUCIÓN está abierto, mantiene el campo fechaHora
+  // actualizado con la hora real cada segundo (las devoluciones siempre son creación).
+  useEffect(() => {
+    if (modalActivo === "devolucion") {
+      const actualizar = () =>
+        setFormDevolucion((prev) => ({ ...prev, fechaHora: obtenerFechaHoraLocal() }));
+      actualizar();
+      const intervalo = setInterval(actualizar, 1000);
+      return () => clearInterval(intervalo);
+    }
+  }, [modalActivo]);
+
   // ── Validaciones login / registro ─────────────────────────────────────────
 
   const validarCorreo = (v: string) => v.endsWith("@redsalud.gov.cl");
@@ -472,8 +506,11 @@ function App() {
         );
 
         // Escritura 2: crear el documento de la entrega
+        // Se sella la fecha/hora real al momento de guardar (evita fechas
+        // pasadas o futuras aunque el intervalo automático no haya corrido).
         const nueva: Omit<Entrega, "id"> = {
           ...formEntrega,
+          fechaHora: obtenerFechaHoraLocal(),
           lineas: lineasValidas,
         };
         await agregarEntregaFirestore(nueva);
@@ -532,8 +569,11 @@ function App() {
       );
 
       // Escritura 2: crear el documento de la devolución
+      // Se sella la fecha/hora real al momento de guardar (evita fechas
+      // pasadas o futuras aunque el intervalo automático no haya corrido).
       const nueva: Omit<Devolucion, "id"> = {
         ...formDevolucion,
+        fechaHora: obtenerFechaHoraLocal(),
         lineas: lineasValidas,
       };
       await agregarDevolucionFirestore(nueva);
@@ -1376,10 +1416,24 @@ function App() {
                   <input
                     type="datetime-local"
                     value={formEntrega.fechaHora}
-                    onChange={(e) =>
-                      setFormEntrega({ ...formEntrega, fechaHora: e.target.value })
-                    }
+                    disabled={!entregaEditandoId}
+                    readOnly={!entregaEditandoId}
+                    onChange={(e) => {
+                      // Solo se permite editar manualmente si se está
+                      // EDITANDO una entrega existente (fecha ya histórica).
+                      if (entregaEditandoId) {
+                        setFormEntrega({
+                          ...formEntrega,
+                          fechaHora: e.target.value,
+                        });
+                      }
+                    }}
                   />
+                  {!entregaEditandoId && (
+                    <span className="etiqueta-unidad">
+                      Se registra automáticamente con la fecha y hora actual.
+                    </span>
+                  )}
                 </div>
                 <button type="submit" className="btn-guardar-modal" disabled={guardando}>
                   {guardando
@@ -1460,13 +1514,12 @@ function App() {
                   <input
                     type="datetime-local"
                     value={formDevolucion.fechaHora}
-                    onChange={(e) =>
-                      setFormDevolucion({
-                        ...formDevolucion,
-                        fechaHora: e.target.value,
-                      })
-                    }
+                    disabled
+                    readOnly
                   />
+                  <span className="etiqueta-unidad">
+                    Se registra automáticamente con la fecha y hora actual.
+                  </span>
                 </div>
                 <button type="submit" className="btn-guardar-modal" disabled={guardando}>
                   {guardando ? "Guardando…" : "Guardar devolución"}
