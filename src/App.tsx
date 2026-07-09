@@ -15,11 +15,14 @@ import {
   editarEntregaFirestore,
   escucharEntregas,
 } from "./services/entregaService";
+
 import {
   agregarDevolucionFirestore,
   eliminarDevolucionFirestore,
   escucharDevoluciones,
 } from "./services/devolucionService";
+
+
 import {
   asegurarAdminExiste,
   iniciarSesion,
@@ -734,7 +737,7 @@ function App() {
     return (
       <main className="login-container">
         <section className="login-card">
-          <h1>Intranet RedSalud</h1>
+          <h1>Sistema de Bodega</h1>
           <p>Cargando sesión…</p>
         </section>
       </main>

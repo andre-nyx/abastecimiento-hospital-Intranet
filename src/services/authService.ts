@@ -153,7 +153,14 @@ export function escucharSesion(
       callback(null);
       return;
     }
-    const rol = await obtenerRol(user.uid);
-    callback({ uid: user.uid, correo: user.email ?? "", rol });
+    try {
+      const rol = await obtenerRol(user.uid);
+      callback({ uid: user.uid, correo: user.email ?? "", rol });
+    } catch (err) {
+      // Si falla la lectura del rol (ej. reglas de Firestore), no dejamos
+      // la app colgada esperando: igual se entra, con rol por defecto.
+      console.error("No se pudo leer el rol del usuario:", err);
+      callback({ uid: user.uid, correo: user.email ?? "", rol: "usuario" });
+    }
   });
 }
