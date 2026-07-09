@@ -1,4 +1,4 @@
-import { db } from "../firebase/config";
+import { db } from "../firebase/firebaseConfig";
 import { collection, addDoc, doc, updateDoc, onSnapshot } from "firebase/firestore";
 import type { Entrega } from "../types/Entrega";
 

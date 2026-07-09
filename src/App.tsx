@@ -20,30 +20,20 @@ import {
   eliminarDevolucionFirestore,
   escucharDevoluciones,
 } from "./services/devolucionService";
+import {
+  asegurarAdminExiste,
+  iniciarSesion,
+  cerrarSesionFirebase,
+  escucharSesion,
+  crearUsuario,
+  type UsuarioApp,
+  type Rol,
+} from "./services/authService";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
-interface UsuarioSesion {
-  correo: string;
-}
-
-type ModalActivo = "entrega" | "devolucion" | "producto" | null;
+type ModalActivo = "entrega" | "devolucion" | "producto" | "registro" | null;
 type VistaActual = "productos" | "entregas" | "devoluciones";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function leerLS<T>(clave: string, defecto: T): T {
-  try {
-    const raw = localStorage.getItem(clave);
-    return raw ? (JSON.parse(raw) as T) : defecto;
-  } catch {
-    return defecto;
-  }
-}
-
-function escribirLS<T>(clave: string, valor: T): void {
-  localStorage.setItem(clave, JSON.stringify(valor));
-}
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -52,15 +42,15 @@ function App() {
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
   const [errores, setErrores] = useState({ correo: "", password: "" });
-  const [usuario, setUsuario] = useState<UsuarioSesion | null>(() =>
-    leerLS<UsuarioSesion | null>("usuarioSesion", null)
-  );
+  const [usuario, setUsuario] = useState<UsuarioApp | null>(null);
+  const [cargandoSesion, setCargandoSesion] = useState(true);
+  const [iniciandoSesion, setIniciandoSesion] = useState(false);
 
   // Navegación
   const [modalActivo, setModalActivo] = useState<ModalActivo>(null);
   const [vistaActual, setVistaActual] = useState<VistaActual>("productos");
-  const [menuAbierto, setMenuAbierto] = useState
-    "productos" | "entregas" | "devoluciones" | null
+  const [menuAbierto, setMenuAbierto] = useState<
+    "productos" | "entregas" | "devoluciones" | "administracion" | null
   >(null);
   const navRef = useRef<HTMLElement>(null);
 
@@ -72,6 +62,23 @@ function App() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // ── Sesión (Firebase Authentication) ──────────────────────────────────────
+  // Al montar la app: se asegura de que exista la cuenta admin fija y se
+  // suscribe a los cambios de sesión de Firebase Auth. Ya no se usa
+  // localStorage para nada relacionado con la sesión del usuario.
+  useEffect(() => {
+    asegurarAdminExiste().catch((err) =>
+      console.error("Error asegurando cuenta admin:", err)
+    );
+
+    const unsubscribe = escucharSesion((u) => {
+      setUsuario(u);
+      setCargandoSesion(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Datos en Firestore (tiempo real)
@@ -165,6 +172,12 @@ function App() {
     { productoId: "", cantidad: 1 },
   ]);
 
+  // ── Formulario registro de cuenta (solo admin) ────────────────────────────
+
+  const registroVacio = { correo: "", password: "", rol: "usuario" as Rol };
+  const [formRegistro, setFormRegistro] = useState(registroVacio);
+  const [erroresRegistro, setErroresRegistro] = useState({ correo: "", password: "" });
+
   // ── Helpers de líneas ─────────────────────────────────────────────────────
 
   const agregarLinea = (
@@ -186,13 +199,34 @@ function App() {
       prev.map((l, i) => (i === idx ? { ...l, [campo]: valor } : l))
     );
 
-  // ── Validaciones login ────────────────────────────────────────────────────
+  // ── Validaciones login / registro ─────────────────────────────────────────
 
   const validarCorreo = (v: string) => v.endsWith("@redsalud.gov.cl");
   const validarPassword = (v: string) =>
     v.length >= 7 && /[a-z]/.test(v) && /[A-Z]/.test(v) && /[0-9]/.test(v);
 
-  const manejarLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  /** Traduce los códigos de error de Firebase Auth a mensajes en español */
+  const mensajeErrorAuth = (codigo: string | undefined) => {
+    switch (codigo) {
+      case "auth/invalid-email":
+        return "El correo no es válido.";
+      case "auth/user-not-found":
+      case "auth/wrong-password":
+      case "auth/invalid-credential":
+      case "auth/invalid-login-credentials":
+        return "Correo o contraseña incorrectos.";
+      case "auth/too-many-requests":
+        return "Demasiados intentos. Intenta de nuevo más tarde.";
+      case "auth/email-already-in-use":
+        return "Ya existe una cuenta con ese correo.";
+      case "auth/weak-password":
+        return "La contraseña es demasiado débil.";
+      default:
+        return "Ocurrió un error. Intenta nuevamente.";
+    }
+  };
+
+  const manejarLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const errs = { correo: "", password: "" };
     if (!correo.trim()) errs.correo = "El correo es obligatorio.";
@@ -203,18 +237,68 @@ function App() {
       errs.password =
         "Debe tener al menos 7 caracteres, una mayúscula, una minúscula y un número.";
     setErrores(errs);
-    if (!errs.correo && !errs.password) {
-      const u = { correo };
-      escribirLS("usuarioSesion", u);
-      setUsuario(u);
+    if (errs.correo || errs.password) return;
+
+    setIniciandoSesion(true);
+    try {
+      // La sesión queda gestionada por Firebase Auth (escucharSesion la
+      // recibe automáticamente); no se guarda nada en localStorage.
+      await iniciarSesion(correo, password);
+      setCorreo("");
+      setPassword("");
+    } catch (err) {
+      const codigo = (err as { code?: string })?.code;
+      setErrores({ correo: "", password: mensajeErrorAuth(codigo) });
+    } finally {
+      setIniciandoSesion(false);
     }
   };
 
-  const cerrarSesion = () => {
-    localStorage.removeItem("usuarioSesion");
-    setUsuario(null);
+  const cerrarSesion = async () => {
+    try {
+      await cerrarSesionFirebase();
+    } catch (err) {
+      console.error(err);
+    }
     setCorreo("");
     setPassword("");
+  };
+
+  // ── Registro de cuentas (solo admin) ──────────────────────────────────────
+
+  const esAdmin = usuario?.rol === "admin";
+
+  const guardarRegistro = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const errs = { correo: "", password: "" };
+    if (!formRegistro.correo.trim()) errs.correo = "El correo es obligatorio.";
+    else if (!validarCorreo(formRegistro.correo))
+      errs.correo = "El correo debe terminar en @redsalud.gov.cl";
+    if (!formRegistro.password.trim())
+      errs.password = "La contraseña es obligatoria.";
+    else if (!validarPassword(formRegistro.password))
+      errs.password =
+        "Debe tener al menos 7 caracteres, una mayúscula, una minúscula y un número.";
+    setErroresRegistro(errs);
+    if (errs.correo || errs.password) return;
+
+    setGuardando(true);
+    try {
+      await crearUsuario(
+        formRegistro.correo,
+        formRegistro.password,
+        formRegistro.rol
+      );
+      alert(`Cuenta creada correctamente para ${formRegistro.correo}.`);
+      setFormRegistro(registroVacio);
+      setErroresRegistro({ correo: "", password: "" });
+      setModalActivo(null);
+    } catch (err) {
+      const codigo = (err as { code?: string })?.code;
+      setErroresRegistro({ correo: mensajeErrorAuth(codigo), password: "" });
+    } finally {
+      setGuardando(false);
+    }
   };
 
   // ── CRUD Productos ────────────────────────────────────────────────────────
@@ -643,6 +727,20 @@ function App() {
         })()
       : undefined;
 
+  // ── Vista: cargando sesión ─────────────────────────────────────────────────
+  // Mientras Firebase Auth resuelve si hay una sesión activa, se evita mostrar
+  // el login o el sistema de golpe (evita parpadeos).
+  if (cargandoSesion) {
+    return (
+      <main className="login-container">
+        <section className="login-card">
+          <h1>Intranet RedSalud</h1>
+          <p>Cargando sesión…</p>
+        </section>
+      </main>
+    );
+  }
+
   // ── Vista: Login ──────────────────────────────────────────────────────────
 
   if (!usuario) {
@@ -680,8 +778,8 @@ function App() {
                 <span className="error-texto">{errores.password}</span>
               )}
             </div>
-            <button type="submit" className="btn-login">
-              Iniciar sesión
+            <button type="submit" className="btn-login" disabled={iniciandoSesion}>
+              {iniciandoSesion ? "Ingresando…" : "Iniciar sesión"}
             </button>
           </form>
         </section>
@@ -820,6 +918,36 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* Administración — solo visible para el admin */}
+            {esAdmin && (
+              <div className="nav-dropdown">
+                <button
+                  type="button"
+                  className={`nav-btn${menuAbierto === "administracion" ? " nav-btn--activo" : ""}`}
+                  onClick={() =>
+                    setMenuAbierto(
+                      menuAbierto === "administracion" ? null : "administracion"
+                    )
+                  }
+                >
+                  Administración ▾
+                </button>
+                {menuAbierto === "administracion" && (
+                  <div className="dropdown-menu dropdown-menu--visible">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalActivo("registro");
+                        setMenuAbierto(null);
+                      }}
+                    >
+                      Crear cuenta
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </nav>
 
           <div className="usuario-bodega">
@@ -1339,6 +1467,72 @@ function App() {
                 </div>
                 <button type="submit" className="btn-guardar-modal" disabled={guardando}>
                   {guardando ? "Guardando…" : "Guardar devolución"}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── Modal: Crear cuenta (solo admin) ──────────────────────────── */}
+        {modalActivo === "registro" && esAdmin && (
+          <div className="modal-fondo" onClick={() => setModalActivo(null)}>
+            <div className="modal-bodega" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="cerrar-modal-bodega"
+                onClick={() => setModalActivo(null)}
+              >
+                ×
+              </button>
+              <h2>Crear cuenta</h2>
+              <form onSubmit={guardarRegistro} className="form-modal-bodega">
+                <div className="grupo-formulario">
+                  <label>Correo institucional *</label>
+                  <input
+                    type="email"
+                    value={formRegistro.correo}
+                    placeholder="usuario@redsalud.gov.cl"
+                    className={erroresRegistro.correo ? "input-error" : ""}
+                    onChange={(e) =>
+                      setFormRegistro({ ...formRegistro, correo: e.target.value })
+                    }
+                  />
+                  {erroresRegistro.correo && (
+                    <span className="error-texto">{erroresRegistro.correo}</span>
+                  )}
+                </div>
+                <div className="grupo-formulario">
+                  <label>Contraseña *</label>
+                  <input
+                    type="password"
+                    value={formRegistro.password}
+                    placeholder="Mínimo 7 caracteres, mayúscula, minúscula y número"
+                    className={erroresRegistro.password ? "input-error" : ""}
+                    onChange={(e) =>
+                      setFormRegistro({ ...formRegistro, password: e.target.value })
+                    }
+                  />
+                  {erroresRegistro.password && (
+                    <span className="error-texto">{erroresRegistro.password}</span>
+                  )}
+                </div>
+                <div className="grupo-formulario">
+                  <label>Rango</label>
+                  <select
+                    value={formRegistro.rol}
+                    onChange={(e) =>
+                      setFormRegistro({
+                        ...formRegistro,
+                        rol: e.target.value as Rol,
+                      })
+                    }
+                  >
+                    <option value="usuario">Usuario</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+                <button type="submit" className="btn-guardar-modal" disabled={guardando}>
+                  {guardando ? "Creando…" : "Crear cuenta"}
                 </button>
               </form>
             </div>
