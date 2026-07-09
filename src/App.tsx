@@ -9,10 +9,11 @@ interface UsuarioSesion {
 
 interface Producto {
   id: string;
+  codigo: string;
   nombre: string;
   descripcion: string;
+  categoria: string;
   cantidad: number;
-  unidad: string;
 }
 
 interface LineaProducto {
@@ -98,7 +99,27 @@ function App() {
 
   // ── Formulario producto ───────────────────────────────────────────────────
 
-  const productoVacio = { nombre: "", descripcion: "", cantidad: 0, unidad: "" };
+  const productoVacio = { codigo: "", nombre: "", descripcion: "", categoria: "", cantidad: 0 };
+
+  // ── Filtros de productos ──────────────────────────────────────────────────
+  const [filtroBusqueda, setFiltroBusqueda] = useState("");
+  const [filtroCampo, setFiltroCampo] = useState<"todos" | "nombre" | "codigo" | "descripcion" | "categoria">("todos");
+
+  const productosFiltrados = productos.filter((p) => {
+    const q = filtroBusqueda.trim().toLowerCase();
+    if (!q) return true;
+    if (filtroCampo === "nombre")      return p.nombre.toLowerCase().includes(q);
+    if (filtroCampo === "codigo")      return p.codigo.toLowerCase().includes(q);
+    if (filtroCampo === "descripcion") return p.descripcion.toLowerCase().includes(q);
+    if (filtroCampo === "categoria")   return p.categoria.toLowerCase().includes(q);
+    // "todos"
+    return (
+      p.nombre.toLowerCase().includes(q) ||
+      p.codigo.toLowerCase().includes(q) ||
+      p.descripcion.toLowerCase().includes(q) ||
+      p.categoria.toLowerCase().includes(q)
+    );
+  });
   const [formProducto, setFormProducto] = useState(productoVacio);
 
   // ── Formulario entrega ────────────────────────────────────────────────────
@@ -188,8 +209,8 @@ function App() {
 
   const guardarProducto = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!formProducto.nombre.trim() || !formProducto.unidad.trim()) {
-      alert("Nombre y unidad son obligatorios.");
+    if (!formProducto.nombre.trim()) {
+      alert("El nombre es obligatorio.");
       return;
     }
     const nuevo: Producto = { id: Date.now().toString(), ...formProducto };
@@ -199,6 +220,8 @@ function App() {
     setFormProducto(productoVacio);
     setModalActivo(null);
     setVistaActual("productos");
+    setFiltroBusqueda("");
+    setFiltroCampo("todos");
   };
 
   const eliminarProducto = (id: string) => {
@@ -280,7 +303,7 @@ function App() {
         if (l.cantidad > disponible) {
           const prod = productos.find((p) => p.id === l.productoId);
           alert(
-            `Stock insuficiente para "${prod?.nombre ?? l.productoId}". Disponible (considerando la entrega anterior): ${disponible} ${prod?.unidad ?? ""}.`
+            `Stock insuficiente para "${prod?.nombre ?? l.productoId}". Disponible (considerando la entrega anterior): ${disponible}.`
           );
           return;
         }
@@ -310,7 +333,7 @@ function App() {
         const prod = productos.find((p) => p.id === l.productoId)!;
         if (l.cantidad > prod.cantidad) {
           alert(
-            `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.cantidad} ${prod.unidad}.`
+            `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.cantidad}.`
           );
           return;
         }
@@ -412,7 +435,7 @@ function App() {
     lineas
       .map((l) => {
         const p = productos.find((x) => x.id === l.productoId);
-        return p ? `${p.nombre} × ${l.cantidad} ${p.unidad}` : "—";
+        return p ? `${p.nombre} × ${l.cantidad}` : "—";
       })
       .join(", ");
 
@@ -478,8 +501,8 @@ function App() {
                     <option key={p.id} value={p.id} disabled={yaUsado}>
                       {p.nombre}
                       {modo === "entrega"
-                        ? ` (stock: ${stockMostrar} ${p.unidad})`
-                        : ` (${p.unidad})`}
+                        ? ` (stock: ${stockMostrar})`
+                        : ``}
                     </option>
                   );
                 })}
@@ -502,20 +525,17 @@ function App() {
                 }
               />
 
-              {prodActual && (
+              {prodActual && modo === "entrega" && (
                 <span className="etiqueta-unidad">
-                  {prodActual.unidad}
-                  {modo === "entrega" && (
-                    <span
-                      className={
-                        linea.cantidad > maxCantidad
-                          ? "stock-insuficiente"
-                          : "stock-ok"
-                      }
-                    >
-                      &nbsp;(disp: {maxCantidad})
-                    </span>
-                  )}
+                  <span
+                    className={
+                      linea.cantidad > maxCantidad
+                        ? "stock-insuficiente"
+                        : "stock-ok"
+                    }
+                  >
+                    disp: {maxCantidad}
+                  </span>
                 </span>
               )}
 
@@ -771,28 +791,85 @@ function App() {
                 </button>
               </div>
 
+              {/* ── Barra de filtros ── */}
+              <div className="barra-filtros">
+                <div className="filtro-campo-wrapper">
+                  <select
+                    className="select-filtro-campo"
+                    value={filtroCampo}
+                    onChange={(e) =>
+                      setFiltroCampo(
+                        e.target.value as "todos" | "nombre" | "codigo" | "descripcion" | "categoria"
+                      )
+                    }
+                  >
+                    <option value="todos">Todos los campos</option>
+                    <option value="nombre">Nombre</option>
+                    <option value="codigo">Código</option>
+                    <option value="descripcion">Descripción</option>
+                    <option value="categoria">Categoría</option>
+                  </select>
+                </div>
+                <div className="filtro-input-wrapper">
+                  <input
+                    type="text"
+                    className="input-filtro"
+                    placeholder={
+                      filtroCampo === "todos"
+                        ? "Buscar en todos los campos..."
+                        : `Buscar por ${filtroCampo}...`
+                    }
+                    value={filtroBusqueda}
+                    onChange={(e) => setFiltroBusqueda(e.target.value)}
+                  />
+                  {filtroBusqueda && (
+                    <button
+                      type="button"
+                      className="btn-limpiar-filtro"
+                      onClick={() => setFiltroBusqueda("")}
+                      title="Limpiar búsqueda"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {filtroBusqueda && (
+                  <span className="filtro-resultado">
+                    {productosFiltrados.length} resultado{productosFiltrados.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+
               {productos.length === 0 ? (
                 <div className="estado-vacio">
                   <p>No hay productos registrados.</p>
                   <p>Usa el botón de arriba para agregar el primero.</p>
+                </div>
+              ) : productosFiltrados.length === 0 ? (
+                <div className="estado-vacio">
+                  <p>No se encontraron productos con esa búsqueda.</p>
+                  <p>Intenta con otros términos o cambia el campo de búsqueda.</p>
                 </div>
               ) : (
                 <div className="tabla-contenedor">
                   <table>
                     <thead>
                       <tr>
+                        <th>Código</th>
                         <th>Nombre</th>
                         <th>Descripción</th>
+                        <th>Categoría</th>
                         <th>Stock actual</th>
-                        <th>Unidad</th>
                         <th>Acción</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {productos.map((p) => (
+                      {productosFiltrados.map((p) => (
                         <tr key={p.id}>
+                          <td>{p.codigo || "—"}</td>
                           <td>{p.nombre}</td>
                           <td>{p.descripcion || "—"}</td>
+                          <td>{p.categoria || "—"}</td>
                           <td>
                             <span
                               className={
@@ -806,7 +883,6 @@ function App() {
                               {p.cantidad}
                             </span>
                           </td>
-                          <td>{p.unidad}</td>
                           <td>
                             <button
                               type="button"
@@ -963,6 +1039,30 @@ function App() {
               </button>
               <h2>Agregar producto</h2>
               <form onSubmit={guardarProducto} className="form-modal-bodega">
+                <div className="grupo-formulario grupo-doble">
+                  <div>
+                    <label>Código</label>
+                    <input
+                      type="text"
+                      value={formProducto.codigo}
+                      placeholder="Ej: MED-001"
+                      onChange={(e) =>
+                        setFormProducto({ ...formProducto, codigo: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label>Categoría</label>
+                    <input
+                      type="text"
+                      value={formProducto.categoria}
+                      placeholder="Ej: Insumos, Medicamentos"
+                      onChange={(e) =>
+                        setFormProducto({ ...formProducto, categoria: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
                 <div className="grupo-formulario">
                   <label>Nombre del producto *</label>
                   <input
@@ -987,35 +1087,19 @@ function App() {
                     }
                   />
                 </div>
-                <div className="grupo-formulario grupo-doble">
-                  <div>
-                    <label>Cantidad inicial *</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={formProducto.cantidad}
-                      onChange={(e) =>
-                        setFormProducto({
-                          ...formProducto,
-                          cantidad: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label>Unidad *</label>
-                    <input
-                      type="text"
-                      value={formProducto.unidad}
-                      placeholder="Ej: Caja, Unidad, Kg"
-                      onChange={(e) =>
-                        setFormProducto({
-                          ...formProducto,
-                          unidad: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                <div className="grupo-formulario">
+                  <label>Cantidad inicial *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formProducto.cantidad}
+                    onChange={(e) =>
+                      setFormProducto({
+                        ...formProducto,
+                        cantidad: Number(e.target.value),
+                      })
+                    }
+                  />
                 </div>
                 <button type="submit" className="btn-guardar-modal">
                   Guardar producto
