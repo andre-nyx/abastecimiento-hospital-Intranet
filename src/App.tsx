@@ -1,42 +1,30 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
+import type { Producto } from "./types/Producto";
+import type { LineaProducto } from "./types/LineaProducto";
+import type { Entrega } from "./types/Entrega";
+import type { Devolucion } from "./types/Devolucion";
+import {
+  agregarProductoFirestore,
+  eliminarProductoFirestore,
+  actualizarStockProducto,
+  escucharProductos,
+} from "./services/productoService";
+import {
+  agregarEntregaFirestore,
+  editarEntregaFirestore,
+  escucharEntregas,
+} from "./services/entregaService";
+import {
+  agregarDevolucionFirestore,
+  eliminarDevolucionFirestore,
+  escucharDevoluciones,
+} from "./services/devolucionService";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
 interface UsuarioSesion {
   correo: string;
-}
-
-interface Producto {
-  id: string;
-  codigo: string;
-  nombre: string;
-  descripcion: string;
-  categoria: string;
-  cantidad: number;
-}
-
-interface LineaProducto {
-  productoId: string;
-  cantidad: number;
-}
-
-interface Entrega {
-  id: string;
-  personaEntrega: string;
-  servicioEntrega: string;
-  personaRecibe: string;
-  lineas: LineaProducto[];
-  fechaHora: string;
-}
-
-interface Devolucion {
-  id: string;
-  personaRecibe: string;
-  servicioDevolucion: string;
-  personaDevuelve: string;
-  lineas: LineaProducto[];
-  fechaHora: string;
 }
 
 type ModalActivo = "entrega" | "devolucion" | "producto" | null;
@@ -71,7 +59,7 @@ function App() {
   // Navegación
   const [modalActivo, setModalActivo] = useState<ModalActivo>(null);
   const [vistaActual, setVistaActual] = useState<VistaActual>("productos");
-  const [menuAbierto, setMenuAbierto] = useState<
+  const [menuAbierto, setMenuAbierto] = useState
     "productos" | "entregas" | "devoluciones" | null
   >(null);
   const navRef = useRef<HTMLElement>(null);
@@ -86,16 +74,40 @@ function App() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Datos persistidos
-  const [productos, setProductos] = useState<Producto[]>(() =>
-    leerLS<Producto[]>("productosBodegaHRC", [])
-  );
-  const [entregas, setEntregas] = useState<Entrega[]>(() =>
-    leerLS<Entrega[]>("entregasBodegaHRC", [])
-  );
-  const [devoluciones, setDevoluciones] = useState<Devolucion[]>(() =>
-    leerLS<Devolucion[]>("devolucionesBodegaHRC", [])
-  );
+  // Datos en Firestore (tiempo real)
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [entregas, setEntregas] = useState<Entrega[]>([]);
+  const [devoluciones, setDevoluciones] = useState<Devolucion[]>([]);
+  const [cargandoProductos, setCargandoProductos] = useState(true);
+  const [cargandoEntregas, setCargandoEntregas] = useState(true);
+  const [cargandoDevoluciones, setCargandoDevoluciones] = useState(true);
+  // Evita doble envío mientras una escritura a Firestore está en curso
+  const [guardando, setGuardando] = useState(false);
+
+  // Se conecta a Firestore solo cuando hay sesión iniciada, y limpia los
+  // listeners al cerrar sesión o desmontar el componente.
+  useEffect(() => {
+    if (!usuario) return;
+
+    const unsubProductos = escucharProductos((lista) => {
+      setProductos(lista);
+      setCargandoProductos(false);
+    });
+    const unsubEntregas = escucharEntregas((lista) => {
+      setEntregas(lista);
+      setCargandoEntregas(false);
+    });
+    const unsubDevoluciones = escucharDevoluciones((lista) => {
+      setDevoluciones(lista);
+      setCargandoDevoluciones(false);
+    });
+
+    return () => {
+      unsubProductos();
+      unsubEntregas();
+      unsubDevoluciones();
+    };
+  }, [usuario]);
 
   // ── Formulario producto ───────────────────────────────────────────────────
 
@@ -207,28 +219,38 @@ function App() {
 
   // ── CRUD Productos ────────────────────────────────────────────────────────
 
-  const guardarProducto = (e: React.FormEvent<HTMLFormElement>) => {
+  const guardarProducto = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!formProducto.nombre.trim()) {
       alert("El nombre es obligatorio.");
       return;
     }
-    const nuevo: Producto = { id: Date.now().toString(), ...formProducto };
-    const lista = [...productos, nuevo];
-    setProductos(lista);
-    escribirLS("productosBodegaHRC", lista);
-    setFormProducto(productoVacio);
-    setModalActivo(null);
-    setVistaActual("productos");
-    setFiltroBusqueda("");
-    setFiltroCampo("todos");
+    setGuardando(true);
+    try {
+      await agregarProductoFirestore(formProducto);
+      // No hace falta actualizar "productos" a mano: el listener onSnapshot
+      // de escucharProductos recibe el cambio y refresca el estado solo.
+      setFormProducto(productoVacio);
+      setModalActivo(null);
+      setVistaActual("productos");
+      setFiltroBusqueda("");
+      setFiltroCampo("todos");
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo guardar el producto. Intenta nuevamente.");
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  const eliminarProducto = (id: string) => {
+  const eliminarProducto = async (id: string) => {
     if (!confirm("¿Eliminar este producto?")) return;
-    const lista = productos.filter((p) => p.id !== id);
-    setProductos(lista);
-    escribirLS("productosBodegaHRC", lista);
+    try {
+      await eliminarProductoFirestore(id);
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo eliminar el producto. Intenta nuevamente.");
+    }
   };
 
   // ── CRUD Entregas ─────────────────────────────────────────────────────────
@@ -255,7 +277,7 @@ function App() {
     setLineasEntrega([{ productoId: "", cantidad: 1 }]);
   };
 
-  const guardarEntrega = (e: React.FormEvent<HTMLFormElement>) => {
+  const guardarEntrega = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const { personaEntrega, servicioEntrega, personaRecibe, fechaHora } =
       formEntrega;
@@ -282,87 +304,109 @@ function App() {
       }
     }
 
-    if (entregaEditandoId) {
-      // ── Modo edición ──────────────────────────────────────────────────────
-      // Calcular el stock disponible considerando que las líneas originales
-      // ya fueron descontadas: primero revertimos el original, luego
-      // comprobamos si hay stock suficiente para las nuevas líneas.
+    setGuardando(true);
+    try {
+      if (entregaEditandoId) {
+        // ── Modo edición ────────────────────────────────────────────────────
+        // Calcular el stock disponible considerando que las líneas originales
+        // ya fueron descontadas: primero revertimos el original, luego
+        // comprobamos si hay stock suficiente para las nuevas líneas.
 
-      // Stock virtual = stock actual + lo que se había descontado antes
-      const stockVirtual: Record<string, number> = {};
-      productos.forEach((p) => (stockVirtual[p.id] = p.cantidad));
-      lineasEntregaOriginal.forEach((l) => {
-        if (stockVirtual[l.productoId] !== undefined) {
-          stockVirtual[l.productoId] += l.cantidad;
-        }
-      });
+        // Stock virtual = stock actual + lo que se había descontado antes
+        const stockVirtual: Record<string, number> = {};
+        productos.forEach((p) => (stockVirtual[p.id] = p.cantidad));
+        lineasEntregaOriginal.forEach((l) => {
+          if (stockVirtual[l.productoId] !== undefined) {
+            stockVirtual[l.productoId] += l.cantidad;
+          }
+        });
 
-      // Validar que el nuevo pedido cabe en el stock virtual
-      for (const l of lineasValidas) {
-        const disponible = stockVirtual[l.productoId] ?? 0;
-        if (l.cantidad > disponible) {
-          const prod = productos.find((p) => p.id === l.productoId);
-          alert(
-            `Stock insuficiente para "${prod?.nombre ?? l.productoId}". Disponible (considerando la entrega anterior): ${disponible}.`
-          );
-          return;
+        // Validar que el nuevo pedido cabe en el stock virtual
+        for (const l of lineasValidas) {
+          const disponible = stockVirtual[l.productoId] ?? 0;
+          if (l.cantidad > disponible) {
+            const prod = productos.find((p) => p.id === l.productoId);
+            alert(
+              `Stock insuficiente para "${prod?.nombre ?? l.productoId}". Disponible (considerando la entrega anterior): ${disponible}.`
+            );
+            setGuardando(false);
+            return;
+          }
         }
+
+        // Diferencia de stock a aplicar por producto: revertir lo original
+        // y descontar lo nuevo. Solo se escriben los productos que cambiaron.
+        const productosAfectados = productos.filter((p) => {
+          const cantOriginal =
+            lineasEntregaOriginal.find((l) => l.productoId === p.id)?.cantidad ?? 0;
+          const cantNueva =
+            lineasValidas.find((l) => l.productoId === p.id)?.cantidad ?? 0;
+          return cantOriginal !== cantNueva;
+        });
+
+        // Escritura 1: actualizar el stock de cada producto afectado en Firestore
+        await Promise.all(
+          productosAfectados.map((p) => {
+            const cantOriginal =
+              lineasEntregaOriginal.find((l) => l.productoId === p.id)?.cantidad ?? 0;
+            const cantNueva =
+              lineasValidas.find((l) => l.productoId === p.id)?.cantidad ?? 0;
+            return actualizarStockProducto(
+              p.id,
+              p.cantidad + cantOriginal - cantNueva
+            );
+          })
+        );
+
+        // Escritura 2: actualizar el documento de la entrega
+        await editarEntregaFirestore(entregaEditandoId, {
+          ...formEntrega,
+          lineas: lineasValidas,
+        });
+      } else {
+        // ── Modo creación ───────────────────────────────────────────────────
+        for (const l of lineasValidas) {
+          const prod = productos.find((p) => p.id === l.productoId)!;
+          if (l.cantidad > prod.cantidad) {
+            alert(
+              `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.cantidad}.`
+            );
+            setGuardando(false);
+            return;
+          }
+        }
+
+        // Escritura 1: descontar stock de cada producto en Firestore
+        await Promise.all(
+          lineasValidas.map((l) => {
+            const prod = productos.find((p) => p.id === l.productoId)!;
+            return actualizarStockProducto(prod.id, prod.cantidad - l.cantidad);
+          })
+        );
+
+        // Escritura 2: crear el documento de la entrega
+        const nueva: Omit<Entrega, "id"> = {
+          ...formEntrega,
+          lineas: lineasValidas,
+        };
+        await agregarEntregaFirestore(nueva);
       }
 
-      // Aplicar diferencia de stock: revertir originales y descontar nuevas
-      const productosActualizados = productos.map((p) => {
-        const cantOriginal =
-          lineasEntregaOriginal.find((l) => l.productoId === p.id)?.cantidad ?? 0;
-        const cantNueva =
-          lineasValidas.find((l) => l.productoId === p.id)?.cantidad ?? 0;
-        return { ...p, cantidad: p.cantidad + cantOriginal - cantNueva };
-      });
-      setProductos(productosActualizados);
-      escribirLS("productosBodegaHRC", productosActualizados);
-
-      const lista = entregas.map((en) =>
-        en.id === entregaEditandoId
-          ? { ...en, ...formEntrega, lineas: lineasValidas }
-          : en
-      );
-      setEntregas(lista);
-      escribirLS("entregasBodegaHRC", lista);
-    } else {
-      // ── Modo creación ─────────────────────────────────────────────────────
-      for (const l of lineasValidas) {
-        const prod = productos.find((p) => p.id === l.productoId)!;
-        if (l.cantidad > prod.cantidad) {
-          alert(
-            `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.cantidad}.`
-          );
-          return;
-        }
-      }
-
-      const productosActualizados = productos.map((p) => {
-        const linea = lineasValidas.find((l) => l.productoId === p.id);
-        return linea ? { ...p, cantidad: p.cantidad - linea.cantidad } : p;
-      });
-      setProductos(productosActualizados);
-      escribirLS("productosBodegaHRC", productosActualizados);
-
-      const nueva: Entrega = {
-        id: Date.now().toString(),
-        ...formEntrega,
-        lineas: lineasValidas,
-      };
-      const lista = [...entregas, nueva];
-      setEntregas(lista);
-      escribirLS("entregasBodegaHRC", lista);
+      // Los listeners onSnapshot de productos y entregas actualizan el
+      // estado automáticamente; no hace falta llamar a setProductos/setEntregas.
+      cerrarModalEntrega();
+      setVistaActual("entregas");
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo guardar la entrega. Intenta nuevamente.");
+    } finally {
+      setGuardando(false);
     }
-
-    cerrarModalEntrega();
-    setVistaActual("entregas");
   };
 
   // ── CRUD Devoluciones ─────────────────────────────────────────────────────
 
-  const guardarDevolucion = (e: React.FormEvent<HTMLFormElement>) => {
+  const guardarDevolucion = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const { personaRecibe, servicioDevolucion, personaDevuelve, fechaHora } =
       formDevolucion;
@@ -389,33 +433,45 @@ function App() {
       }
     }
 
-    const productosActualizados = productos.map((p) => {
-      const linea = lineasValidas.find((l) => l.productoId === p.id);
-      return linea ? { ...p, cantidad: p.cantidad + linea.cantidad } : p;
-    });
-    setProductos(productosActualizados);
-    escribirLS("productosBodegaHRC", productosActualizados);
+    setGuardando(true);
+    try {
+      // Escritura 1: sumar stock de cada producto devuelto en Firestore
+      await Promise.all(
+        lineasValidas.map((l) => {
+          const prod = productos.find((p) => p.id === l.productoId);
+          if (!prod) return Promise.resolve();
+          return actualizarStockProducto(prod.id, prod.cantidad + l.cantidad);
+        })
+      );
 
-    const nueva: Devolucion = {
-      id: Date.now().toString(),
-      ...formDevolucion,
-      lineas: lineasValidas,
-    };
-    const lista = [...devoluciones, nueva];
-    setDevoluciones(lista);
-    escribirLS("devolucionesBodegaHRC", lista);
+      // Escritura 2: crear el documento de la devolución
+      const nueva: Omit<Devolucion, "id"> = {
+        ...formDevolucion,
+        lineas: lineasValidas,
+      };
+      await agregarDevolucionFirestore(nueva);
 
-    setFormDevolucion(devolucionVacia);
-    setLineasDevolucion([{ productoId: "", cantidad: 1 }]);
-    setModalActivo(null);
-    setVistaActual("devoluciones");
+      // Los listeners onSnapshot actualizan productos y devoluciones solos.
+      setFormDevolucion(devolucionVacia);
+      setLineasDevolucion([{ productoId: "", cantidad: 1 }]);
+      setModalActivo(null);
+      setVistaActual("devoluciones");
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo guardar la devolución. Intenta nuevamente.");
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  const eliminarDevolucion = (id: string) => {
+  const eliminarDevolucion = async (id: string) => {
     if (!confirm("¿Eliminar esta devolución? El stock NO se revertirá.")) return;
-    const lista = devoluciones.filter((d) => d.id !== id);
-    setDevoluciones(lista);
-    escribirLS("devolucionesBodegaHRC", lista);
+    try {
+      await eliminarDevolucionFirestore(id);
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo eliminar la devolución. Intenta nuevamente.");
+    }
   };
 
   // ── Utilidad: formato fecha ───────────────────────────────────────────────
@@ -840,7 +896,11 @@ function App() {
                 )}
               </div>
 
-              {productos.length === 0 ? (
+              {cargandoProductos ? (
+                <div className="estado-vacio">
+                  <p>Cargando productos…</p>
+                </div>
+              ) : productos.length === 0 ? (
                 <div className="estado-vacio">
                   <p>No hay productos registrados.</p>
                   <p>Usa el botón de arriba para agregar el primero.</p>
@@ -921,7 +981,11 @@ function App() {
                 </button>
               </div>
 
-              {entregas.length === 0 ? (
+              {cargandoEntregas ? (
+                <div className="estado-vacio">
+                  <p>Cargando entregas…</p>
+                </div>
+              ) : entregas.length === 0 ? (
                 <div className="estado-vacio">
                   <p>No hay entregas registradas.</p>
                 </div>
@@ -980,7 +1044,11 @@ function App() {
                 </button>
               </div>
 
-              {devoluciones.length === 0 ? (
+              {cargandoDevoluciones ? (
+                <div className="estado-vacio">
+                  <p>Cargando devoluciones…</p>
+                </div>
+              ) : devoluciones.length === 0 ? (
                 <div className="estado-vacio">
                   <p>No hay devoluciones registradas.</p>
                 </div>
@@ -1101,8 +1169,8 @@ function App() {
                     }
                   />
                 </div>
-                <button type="submit" className="btn-guardar-modal">
-                  Guardar producto
+                <button type="submit" className="btn-guardar-modal" disabled={guardando}>
+                  {guardando ? "Guardando…" : "Guardar producto"}
                 </button>
               </form>
             </div>
@@ -1182,8 +1250,12 @@ function App() {
                     }
                   />
                 </div>
-                <button type="submit" className="btn-guardar-modal">
-                  {entregaEditandoId ? "Guardar cambios" : "Guardar entrega"}
+                <button type="submit" className="btn-guardar-modal" disabled={guardando}>
+                  {guardando
+                    ? "Guardando…"
+                    : entregaEditandoId
+                    ? "Guardar cambios"
+                    : "Guardar entrega"}
                 </button>
               </form>
             </div>
@@ -1265,8 +1337,8 @@ function App() {
                     }
                   />
                 </div>
-                <button type="submit" className="btn-guardar-modal">
-                  Guardar devolución
+                <button type="submit" className="btn-guardar-modal" disabled={guardando}>
+                  {guardando ? "Guardando…" : "Guardar devolución"}
                 </button>
               </form>
             </div>
